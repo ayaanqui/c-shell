@@ -79,7 +79,8 @@ void eval(char *cmdline)
         else
             printf("%d %s", pid, cmdline);
     }
-    return;
+    else
+        waitpid(pid, 0, 0);
 }
 
 int call_processes(char **argv)
