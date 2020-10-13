@@ -82,6 +82,22 @@ void eval(char *cmdline)
     return;
 }
 
+int call_processes(char **argv)
+{
+    posix_spawn_file_actions_t actions1;
+    int pid1;
+
+    posix_spawn_file_actions_init(&actions1);
+
+    if (0 != posix_spawnp(&pid1, argv[0], &actions1, NULL, argv, environ))
+    {
+        perror("spawn failed");
+        return 0;
+    }
+
+    return 1;
+}
+
 /* If first arg is a builtin command, run it and return true */
 int builtin_command(char **argv)
 {
@@ -90,23 +106,7 @@ int builtin_command(char **argv)
     if (!strcmp(argv[0], "&")) /* Ignore singleton & */
         return 1;
     else
-    {
-        posix_spawn_file_actions_t actions1, actions2;
-        char *const cmd1[] = {argv[0], NULL};
-        // int pipe_fds[2];
-        int pid1, pid2;
-
-        posix_spawn_file_actions_init(&actions1);
-        posix_spawn_file_actions_init(&actions2);
-
-        if (0 != posix_spawnp(&pid1, cmd1[0], &actions1, NULL, cmd1, environ))
-        {
-            perror("spawn failed");
-            return 0;
-        }
-
-        return 1;
-    }
+        return call_processes(argv);
 }
 /* $end eval */
 
