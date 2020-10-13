@@ -29,7 +29,7 @@ int main() {
   while (1) {
     char *result;
     /* Read */
-    printf("> ");
+    printf("CS361 > ");
     result = fgets(cmdline, MAXLINE, stdin);
     if (result == NULL && ferror(stdin)) {
       fprintf(stderr, "fatal fgets error\n");
