@@ -1,8 +1,11 @@
 /* $begin shellmain */
+#include <fcntl.h>
+#include <spawn.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -75,7 +78,24 @@ int builtin_command(char **argv) {
     exit(0);
   if (!strcmp(argv[0], "&")) /* Ignore singleton & */
     return 1;
-  return 0; /* Not a builtin command */
+  else
+  {
+    posix_spawn_file_actions_t actions1, actions2;
+    char *const cmd1[] = {argv[0], NULL};
+    // int pipe_fds[2];
+    int pid1, pid2;
+
+    posix_spawn_file_actions_init(&actions1);
+    posix_spawn_file_actions_init(&actions2);
+
+    if (0 != posix_spawnp(&pid1, cmd1[0], &actions1, NULL, cmd1, environ))
+    {
+      perror("spawn failed");
+      return 0;
+    }
+
+    return 1;
+  }
 }
 /* $end eval */
 
