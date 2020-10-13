@@ -58,7 +58,7 @@ void eval(char *cmdline)
     char *argv[MAXARGS]; /* Argument list execve() */
     char buf[MAXLINE];   /* Holds modified command line */
     int bg;              /* Should the job run in bg or fg? */
-    pid_t pid;           /* Process id */
+    pid_t pid = 0;       /* Process id */
 
     strcpy(buf, cmdline);
     bg = parseline(buf, argv);
@@ -94,7 +94,6 @@ int call_processes(char **argv)
         perror("spawn failed");
         return 0;
     }
-
     return 1;
 }
 
