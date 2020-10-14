@@ -19,7 +19,8 @@ extern char **environ; /* Defined by libc */
 void eval(char *cmdline);
 void make_copy(char **dst, char **src, int start, int end);
 int call_processes(char **argv, posix_spawn_file_actions_t *actions, int *pid);
-int create_pipe(char **lhs, char **rhs);
+void create_pipe(char **argv, int i, int size);
+void consec_cmd(char **argv, int i, int size);
 int parse_operators(char **argv);
 int parseline(char *buf, char **argv);
 int builtin_command(char **argv);
@@ -71,7 +72,25 @@ void eval(char *cmdline)
 
     if (!builtin_command(argv))
     {
-        parse_operators(argv);
+        int size = 0;
+        while (argv[size] != NULL)
+            ++size;
+
+        for (int i = 0; argv[i] != NULL; ++i)
+        {
+            if (argv[i][0] == '|')
+                return create_pipe(argv, i, size);
+            else if (argv[i][0] == '<')
+                return;
+            else if (argv[i][0] == '>')
+                return;
+            else if (argv[i][0] == ';')
+                return consec_cmd(argv, i, size);
+        }
+
+        posix_spawn_file_actions_t actions;
+        posix_spawn_file_actions_init(&actions);
+        call_processes(argv, &actions, &pid);
 
         /* Parent waits for foreground job to terminate */
         if (!bg)
@@ -117,8 +136,13 @@ int call_processes(char **argv, posix_spawn_file_actions_t *actions, int *pid)
     return 1;
 }
 
-int create_pipe(char **lhs, char **rhs)
+void create_pipe(char **argv, int i, int size)
 {
+    char **lhs = (char **)malloc((i - 1) * sizeof(char));
+    char **rhs = (char **)malloc((size - i - 2) * sizeof(char));
+    make_copy(lhs, argv, 0, i);
+    make_copy(rhs, argv, i + 1, 10);
+
     int child_status;
     posix_spawn_file_actions_t actions1, actions2;
     int pipe_fds[2];
@@ -141,82 +165,27 @@ int create_pipe(char **lhs, char **rhs)
     close(pipe_fds[0]);
     close(pipe_fds[1]);
     waitpid(pid1, &child_status, 0);
-    return 1;
 }
 
-int parse_operators(char **argv)
+void consec_cmd(char **argv, int i, int size)
 {
-    int size = 0;
-    while (argv[size] != NULL)
-        ++size;
+    char **lhs = (char **)malloc((i - 1) * sizeof(char));
+    char **rhs = (char **)malloc((size - i - 2) * sizeof(char));
+    make_copy(lhs, argv, 0, i);
+    make_copy(rhs, argv, i + 1, 10);
 
-    for (int i = 0; argv[i] != NULL; ++i)
-    {
-        if (argv[i][0] == '|')
-        {
-            char **lhs = (char **)malloc((i - 1) * sizeof(char));
-            char **rhs = (char **)malloc((size - i - 2) * sizeof(char));
-            make_copy(lhs, argv, 0, i);
-            make_copy(rhs, argv, i + 1, 10);
+    posix_spawn_file_actions_t actions1, actions2;
+    int pid1, pid2, child_status;
 
-            return create_pipe(lhs, rhs);
-        }
-        else if (argv[i][0] == '<')
-        {
-            char **lhs = (char **)malloc((i - 1) * sizeof(char));
-            char **rhs = (char **)malloc((size - i - 2) * sizeof(char));
-            make_copy(lhs, argv, 0, i);
-            make_copy(rhs, argv, i + 1, 10);
+    // Command 1 (lhs)
+    posix_spawn_file_actions_init(&actions1);
+    call_processes(lhs, &actions1, &pid1);
+    waitpid(pid1, &child_status, 0);
 
-            return 1;
-        }
-        else if (argv[i][0] == '>')
-        {
-            char **lhs = (char **)malloc((i - 1) * sizeof(char));
-            char **rhs = (char **)malloc((size - i - 2) * sizeof(char));
-            make_copy(lhs, argv, 0, i);
-            make_copy(rhs, argv, i + 1, 10);
-
-            posix_spawn_file_actions_t actions;
-            int pid1, child_status;
-            int pipe_fds[1];
-
-            posix_spawn_file_actions_init(&actions);
-            posix_spawn_file_actions_adddup2(&actions, pipe_fds[1], STDOUT_FILENO);
-
-            return 1;
-        }
-        else if (argv[i][0] == ';')
-        {
-            char **lhs = (char **)malloc((i - 1) * sizeof(char));
-            char **rhs = (char **)malloc((size - i - 2) * sizeof(char));
-            make_copy(lhs, argv, 0, i);
-            make_copy(rhs, argv, i + 1, 10);
-
-            posix_spawn_file_actions_t actions1, actions2;
-            int pid1, pid2, child_status;
-
-            // Command 1 (lhs)
-            posix_spawn_file_actions_init(&actions1);
-            call_processes(lhs, &actions1, &pid1);
-            waitpid(pid1, &child_status, 0);
-
-            // Command 2 (rhs)
-            posix_spawn_file_actions_init(&actions2);
-            call_processes(rhs, &actions2, &pid2);
-            waitpid(pid2, &child_status, 0);
-
-            return 1;
-        }
-    }
-
-    posix_spawn_file_actions_t actions;
-    int pid, child_status;
-    posix_spawn_file_actions_init(&actions);
-    if (!call_processes(argv, &actions, &pid))
-        return 0;
-    waitpid(pid, &child_status, 0);
-    return 1;
+    // Command 2 (rhs)
+    posix_spawn_file_actions_init(&actions2);
+    call_processes(rhs, &actions2, &pid2);
+    waitpid(pid2, &child_status, 0);
 }
 
 /* If first arg is a builtin command, run it and return true */
@@ -226,8 +195,7 @@ int builtin_command(char **argv)
         exit(0);
     if (!strcmp(argv[0], "&")) /* Ignore singleton & */
         return 1;
-    else
-        return 0;
+    return 0; /* Not a built-in command */
 }
 /* $end eval */
 
