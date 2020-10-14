@@ -17,6 +17,10 @@ extern char **environ; /* Defined by libc */
 
 /* Function prototypes */
 void eval(char *cmdline);
+void make_copy(char **dst, char **src, int start, int end);
+int call_processes(char **argv, posix_spawn_file_actions_t *actions, int *pid);
+int create_pipe(char **lhs, char **rhs);
+int parse_operators(char **argv);
 int parseline(char *buf, char **argv);
 int builtin_command(char **argv);
 
@@ -67,8 +71,8 @@ void eval(char *cmdline)
 
     if (!builtin_command(argv))
     {
-        // TODO: run the command argv using posix_spawnp.
-        printf("not yet implemented :(\n");
+        parse_operators(argv);
+
         /* Parent waits for foreground job to terminate */
         if (!bg)
         {
@@ -159,12 +163,27 @@ int parse_operators(char **argv)
         }
         else if (argv[i][0] == '<')
         {
-            printf("<\n");
+            char **lhs = (char **)malloc((i - 1) * sizeof(char));
+            char **rhs = (char **)malloc((size - i - 2) * sizeof(char));
+            make_copy(lhs, argv, 0, i);
+            make_copy(rhs, argv, i + 1, 10);
+
             return 1;
         }
         else if (argv[i][0] == '>')
         {
-            printf(">\n");
+            char **lhs = (char **)malloc((i - 1) * sizeof(char));
+            char **rhs = (char **)malloc((size - i - 2) * sizeof(char));
+            make_copy(lhs, argv, 0, i);
+            make_copy(rhs, argv, i + 1, 10);
+
+            posix_spawn_file_actions_t actions;
+            int pid1, child_status;
+            int pipe_fds[1];
+
+            posix_spawn_file_actions_init(&actions);
+            posix_spawn_file_actions_adddup2(&actions, pipe_fds[1], STDOUT_FILENO);
+
             return 1;
         }
         else if (argv[i][0] == ';')
@@ -208,7 +227,7 @@ int builtin_command(char **argv)
     if (!strcmp(argv[0], "&")) /* Ignore singleton & */
         return 1;
     else
-        return parse_operators(argv);
+        return 0;
 }
 /* $end eval */
 
