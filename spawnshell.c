@@ -135,14 +135,13 @@ int parse_operators(char **argv)
     int size = 0;
     while (argv[size] != NULL)
         ++size;
-    ++size;
 
     for (int i = 0; argv[i] != NULL; ++i)
     {
         if (argv[i][0] == '|')
         {
-            char *lhs[i];
-            char *rhs[size - i];
+            char **lhs = (char **)malloc((i - 1) * sizeof(char));
+            char **rhs = (char **)malloc((size - i - 2) * sizeof(char));
             make_copy(lhs, argv, 0, i);
             make_copy(rhs, argv, i + 1, 10);
 
@@ -167,8 +166,12 @@ int parse_operators(char **argv)
     }
 
     posix_spawn_file_actions_t actions;
-    int pid;
-    return call_processes(argv, &actions, &pid);
+    int pid, child_status;
+    posix_spawn_file_actions_init(&actions);
+    if (!call_processes(argv, &actions, &pid))
+        return 0;
+    waitpid(pid, &child_status, 0);
+    return 1;
 }
 
 /* If first arg is a builtin command, run it and return true */
