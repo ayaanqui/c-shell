@@ -1,5 +1,5 @@
 spawnshell: spawnshell.c
 	gcc -g -Wall -o spawnshell spawnshell.c
 
-forkshell: forkshell.c
-	gcc -g -Wall -o forkshell forkshell.c
+spawnshell_prod: spawnshell.c
+	gcc -Wall -Werror -o spawnshell spawnshell.c
