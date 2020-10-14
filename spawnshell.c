@@ -174,18 +174,17 @@ int parse_operators(char **argv)
             make_copy(lhs, argv, 0, i);
             make_copy(rhs, argv, i + 1, 10);
 
-            // Command 1 (lhs)
             posix_spawn_file_actions_t actions1, actions2;
             int pid1, pid2, child_status;
+
+            // Command 1 (lhs)
             posix_spawn_file_actions_init(&actions1);
-            if (!call_processes(lhs, &actions1, &pid1))
-                return 0;
+            call_processes(lhs, &actions1, &pid1);
             waitpid(pid1, &child_status, 0);
 
             // Command 2 (rhs)
             posix_spawn_file_actions_init(&actions2);
-            if (!call_processes(rhs, &actions2, &pid2))
-                return 0;
+            call_processes(rhs, &actions2, &pid2);
             waitpid(pid2, &child_status, 0);
 
             return 1;
