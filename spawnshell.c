@@ -83,35 +83,54 @@ void eval(char *cmdline)
         waitpid(pid, 0, 0);
 }
 
-void parse_operators(char **argv)
+void make_copy(char **dst, char **src, int start, int end)
 {
-    int i = 0;
-    for (int i = 0; argv[i] != NULL; ++i)
+    int dst_start = 0;
+    for (int i = start; i < end && src[i] != NULL; ++i)
     {
-        if (argv[i][0] == '|')
-        {
-            printf("|");
-        }
-        else if (argv[i][0] == '<')
-        {
-            printf("<");
-        }
-        else if (argv[i][0] == '>')
-        {
-            printf(">");
-        }
-        else if (argv[i][0] == ';')
-        {
-            printf(";");
-        }
-        printf(" detected\n");
+        dst[dst_start] = src[i];
+        ++dst_start;
     }
+}
+
+int create_pipe(char **lhs, char **rhs)
+{
+    int child_status;
+    posix_spawn_file_actions_t actions1, actions2;
+    int pipe_fds[2];
+    int pid1, pid2;
+
+    posix_spawn_file_actions_init(&actions1);
+    posix_spawn_file_actions_init(&actions2);
+
+    pipe(pipe_fds);
+
+    posix_spawn_file_actions_adddup2(&actions1, pipe_fds[1], STDOUT_FILENO);
+    posix_spawn_file_actions_addclose(&actions1, pipe_fds[0]);
+
+    posix_spawn_file_actions_adddup2(&actions2, pipe_fds[0], STDIN_FILENO);
+    posix_spawn_file_actions_addclose(&actions2, pipe_fds[1]);
+
+    if (0 != posix_spawnp(&pid1, lhs[0], &actions1, NULL, lhs, environ))
+    {
+        perror("spawn failed");
+        exit(1);
+    }
+
+    if (0 != posix_spawnp(&pid2, rhs[0], &actions2, NULL, rhs, environ))
+    {
+        perror("spawn failed");
+        exit(1);
+    }
+
+    close(pipe_fds[0]);
+    close(pipe_fds[1]);
+    waitpid(pid1, &child_status, 0);
+    return 1;
 }
 
 int call_processes(char **argv)
 {
-    parse_operators(argv);
-
     posix_spawn_file_actions_t actions1;
     int pid1;
 
@@ -125,6 +144,45 @@ int call_processes(char **argv)
     return 1;
 }
 
+int parse_operators(char **argv)
+{
+    int size = 0;
+    while (argv[size] != NULL)
+        ++size;
+    ++size;
+
+    for (int i = 0; argv[i] != NULL; ++i)
+    {
+        if (argv[i][0] == '|')
+        {
+            char *lhs[i];
+            char *rhs[size - i];
+            make_copy(lhs, argv, 0, i);
+            make_copy(rhs, argv, i + 1, 10);
+
+            return create_pipe(lhs, rhs);
+        }
+        else if (argv[i][0] == '<')
+        {
+            printf("<\n");
+            return 1;
+        }
+        else if (argv[i][0] == '>')
+        {
+            printf(">\n");
+            return 1;
+        }
+        else if (argv[i][0] == ';')
+        {
+            printf(";\n");
+
+            return 1;
+        }
+    }
+
+    return call_processes(argv);
+}
+
 /* If first arg is a builtin command, run it and return true */
 int builtin_command(char **argv)
 {
@@ -133,7 +191,7 @@ int builtin_command(char **argv)
     if (!strcmp(argv[0], "&")) /* Ignore singleton & */
         return 1;
     else
-        return call_processes(argv);
+        return parse_operators(argv);
 }
 /* $end eval */
 
