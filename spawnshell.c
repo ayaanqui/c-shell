@@ -83,6 +83,16 @@ void eval(char *cmdline)
         waitpid(pid, 0, 0);
 }
 
+/**
+ * Makes copy of src into dst given a start and end position, 
+ * if the user does not want to specify an end the user can simply send a very large number for end
+ * and the function will stop copying once we reach the end of src.
+ * Also, I believe this function is only doing a shallow copy and not a deep copy. I figured that this wouldn't matter
+ * since I will not be changing any of these arrays, and they could be seen as immutable.
+ * 
+ * This function was written completely by me for this hw as I thought this was the best way to approach
+ * the problem.
+ */
 void make_copy(char **dst, char **src, int start, int end)
 {
     int dst_start = 0;
