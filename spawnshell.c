@@ -83,8 +83,35 @@ void eval(char *cmdline)
         waitpid(pid, 0, 0);
 }
 
+void parse_operators(char **argv)
+{
+    int i = 0;
+    for (int i = 0; argv[i] != NULL; ++i)
+    {
+        if (argv[i][0] == '|')
+        {
+            printf("|");
+        }
+        else if (argv[i][0] == '<')
+        {
+            printf("<");
+        }
+        else if (argv[i][0] == '>')
+        {
+            printf(">");
+        }
+        else if (argv[i][0] == ';')
+        {
+            printf(";");
+        }
+        printf(" detected\n");
+    }
+}
+
 int call_processes(char **argv)
 {
+    parse_operators(argv);
+
     posix_spawn_file_actions_t actions1;
     int pid1;
 
