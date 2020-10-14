@@ -93,6 +93,16 @@ void make_copy(char **dst, char **src, int start, int end)
     }
 }
 
+int call_processes(char **argv, posix_spawn_file_actions_t *actions, int *pid)
+{
+    if (0 != posix_spawnp(pid, argv[0], actions, NULL, argv, environ))
+    {
+        perror("spawn failed");
+        return 0;
+    }
+    return 1;
+}
+
 int create_pipe(char **lhs, char **rhs)
 {
     int child_status;
@@ -111,36 +121,12 @@ int create_pipe(char **lhs, char **rhs)
     posix_spawn_file_actions_adddup2(&actions2, pipe_fds[0], STDIN_FILENO);
     posix_spawn_file_actions_addclose(&actions2, pipe_fds[1]);
 
-    if (0 != posix_spawnp(&pid1, lhs[0], &actions1, NULL, lhs, environ))
-    {
-        perror("spawn failed");
-        exit(1);
-    }
-
-    if (0 != posix_spawnp(&pid2, rhs[0], &actions2, NULL, rhs, environ))
-    {
-        perror("spawn failed");
-        exit(1);
-    }
+    call_processes(lhs, &actions1, &pid1);
+    call_processes(rhs, &actions2, &pid2);
 
     close(pipe_fds[0]);
     close(pipe_fds[1]);
     waitpid(pid1, &child_status, 0);
-    return 1;
-}
-
-int call_processes(char **argv)
-{
-    posix_spawn_file_actions_t actions1;
-    int pid1;
-
-    posix_spawn_file_actions_init(&actions1);
-
-    if (0 != posix_spawnp(&pid1, argv[0], &actions1, NULL, argv, environ))
-    {
-        perror("spawn failed");
-        return 0;
-    }
     return 1;
 }
 
@@ -180,7 +166,9 @@ int parse_operators(char **argv)
         }
     }
 
-    return call_processes(argv);
+    posix_spawn_file_actions_t actions;
+    int pid;
+    return call_processes(argv, &actions, &pid);
 }
 
 /* If first arg is a builtin command, run it and return true */
