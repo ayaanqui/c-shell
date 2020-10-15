@@ -20,6 +20,8 @@ void eval(char *cmdline);
 void make_copy(char **dst, char **src, int start, int end);
 int call_processes(char **argv, posix_spawn_file_actions_t *actions, int *pid);
 void create_pipe(char **argv, int i, int size);
+void input_redirection(char **argv, int i, int size);
+void output_redirection(char **argv, int i, int size);
 void consec_cmd(char **argv, int i, int size);
 int parse_operators(char **argv);
 int parseline(char *buf, char **argv);
@@ -81,9 +83,9 @@ void eval(char *cmdline)
             if (argv[i][0] == '|')
                 return create_pipe(argv, i, size);
             else if (argv[i][0] == '<')
-                return;
+                return input_redirection(argv, i, size);
             else if (argv[i][0] == '>')
-                return;
+                return output_redirection(argv, i, size);
             else if (argv[i][0] == ';')
                 return consec_cmd(argv, i, size);
         }
@@ -165,6 +167,41 @@ void create_pipe(char **argv, int i, int size)
     close(pipe_fds[0]);
     close(pipe_fds[1]);
     waitpid(pid1, &child_status, 0);
+}
+
+void input_redirection(char **argv, int i, int size)
+{
+    char **lhs = (char **)malloc((i - 1) * sizeof(char));        // command
+    char **rhs = (char **)malloc((size - i - 2) * sizeof(char)); // input
+    make_copy(lhs, argv, 0, i);
+    make_copy(rhs, argv, i + 1, 10);
+
+    posix_spawn_file_actions_t actions;
+    int pid, child_status;
+
+    posix_spawn_file_actions_init(&actions);
+    posix_spawn_file_actions_addopen(&actions, STDIN_FILENO, rhs[0], O_RDONLY | O_CREAT, S_IRUSR | S_IWUSR);
+
+    // Feed the input to command
+    call_processes(lhs, &actions, &pid);
+    wait(&child_status);
+}
+
+void output_redirection(char **argv, int i, int size)
+{
+    char **lhs = (char **)malloc((i - 1) * sizeof(char));        // command
+    char **rhs = (char **)malloc((size - i - 2) * sizeof(char)); // ouput
+    make_copy(lhs, argv, 0, i);
+    make_copy(rhs, argv, i + 1, 10);
+
+    posix_spawn_file_actions_t actions;
+    int pid, child_status;
+
+    posix_spawn_file_actions_init(&actions);
+    posix_spawn_file_actions_addopen(&actions, STDOUT_FILENO, rhs[0], O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
+
+    call_processes(lhs, &actions, &pid);
+    wait(&child_status);
 }
 
 void consec_cmd(char **argv, int i, int size)
