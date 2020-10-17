@@ -176,6 +176,18 @@ void input_redirection(char **argv, int i, int size)
     make_copy(lhs, argv, 0, i);
     make_copy(rhs, argv, i + 1, 10);
 
+    // Check if rhs has an output redirection
+    // lhs = {command}
+    // rhs = {input, ">", output}
+    for (int j = 0; rhs[j] != NULL; ++j)
+    {
+        if (rhs[j][0] == '>')
+        {
+            printf("Input and output redirection is not supported :(\n");
+            return;
+        }
+    }
+
     posix_spawn_file_actions_t actions;
     int pid, child_status;
 
