@@ -41,7 +41,7 @@ int main()
     {
         char *result;
         /* Read */
-        printf("CS361 > ");
+        printf("cshell> ");
         result = fgets(cmdline, MAXLINE, stdin);
         if (result == NULL && ferror(stdin))
         {
